@@ -28,7 +28,7 @@ class TestGetWeatherTool:
 class TestInvokeWeatherAgent:
     """Test suite for the invoke_weather_agent function."""
 
-    def test_invoke_weather_agent_calls_agent(self):
+    def test_invoke_weather_agent(self):
         result = invoke_weather_agent("San Francisco", "values")
 
         messages = result["messages"]
@@ -40,33 +40,44 @@ class TestInvokeWeatherAgent:
 class TestStreamWeatherAgent:
     """Test suite for the stream_weather_agent function."""
 
-    def test_stream_weather_agent_yields_chunks(self):
-        """Test that streaming yields chunks with correct structure."""
+    def test_stream_weather_agent(self):
+        expected_messages = [
+            {
+                "text": "what is the weather in Paris"
+            },
+            {
+                "type": "ai"
+            },
+            {
+                "text": "It's always sunny in Paris!"
+            },
+            {
+                "text": "sunny"
+            }
+        ]
+
         chunk_count = 0
 
-        # Process each chunk separately as it's yielded
-        for mode, chunk in stream_weather_agent("Paris", stream_mode="values"):
+        for _, message in stream_weather_agent("Paris", stream_mode="values"):
             chunk_count += 1
 
-            # Verify each chunk has the expected structure
-            assert mode == "values"
-            assert isinstance(chunk, dict)
+            assert chunk_count <= len(expected_messages), \
+                (f"Received more chunks / messages than expected (expected {len(expected_messages)}, "
+                 f"got {chunk_count})")
 
-            # Print information about this chunk
-            print(f"Chunk {chunk_count}: mode={mode}, keys={list(chunk.keys())}")
+            assert isinstance(message, dict)
+            assert "messages" in message
 
-            # Check if messages are in the chunk
-            if "messages" in chunk:
-                print(f"  Messages count: {len(chunk['messages'])}")
-                last_message: BaseMessage = chunk['messages'][-1]
-                print(f"  Last message type : {type(last_message)}")
-                print(f"  Last message text: {last_message.text}")
+            expected_message = expected_messages[chunk_count - 1]
+            actual_message = message["messages"][-1]
 
+            # Assert all expected properties match actual message properties
+            for key, expected_value in expected_message.items():
+                actual_value = getattr(actual_message, key)
 
-
-        # Should have processed at least one chunk
-        assert chunk_count > 0
-
+                # Check if expected value is contained in actual value
+                assert expected_value in actual_value, \
+                    f"Chunk {chunk_count}: Expected {key} to contain '{expected_value}', got '{actual_value}'"
 
 # Pytest markers for selective test execution
 pytestmark = pytest.mark.unit
