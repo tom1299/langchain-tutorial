@@ -2,10 +2,32 @@
 Unit tests for weather_agent module.
 Tests individual functions in isolation without external dependencies.
 """
+import os
 import pytest
+import requests
+from typing import Dict, Any
 
 from langchain_core.messages import BaseMessage
 from lctutorial.weather_agent import invoke_weather_agent, get_weather, stream_weather_agent
+
+def get_anthropic_credit_balance() -> Dict[str, Any]:
+
+    url = "https://api.anthropic.com/v1/organization/balance"
+
+    headers = {
+        "x-api-key": os.environ.get("ANTHROPIC_API_KEY"),
+        "anthropic-version": "2023-06-01"
+    }
+
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+
+    data = response.json()
+
+    return {
+        "balance": data.get("balance", 0) / 100,  # Convert cents to dollars
+        "currency": data.get("currency", "usd")
+    }
 
 class TestGetWeatherTool:
     """Test suite for the get_weather function."""
@@ -81,4 +103,3 @@ class TestStreamWeatherAgent:
 
 # Pytest markers for selective test execution
 pytestmark = pytest.mark.unit
-
