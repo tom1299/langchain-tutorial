@@ -10,8 +10,11 @@ max_output_tokens = 1000
 
 @fixture(scope="module")
 def openai_model():
+    # Tool choice for openai needs to be auto to enable parallel tool calls:
+    # The constraint tool_choice="get_weather" works differently across providers—OpenAI enforces a single call,
+    # while Anthropic allows multiple calls to the same tool.
     return (init_chat_model(provider="OpenAI", tokens=max_output_tokens)
-            .bind_tools([get_weather], parallel_tool_calls=True, tool_choice="get_weather")) # Specify tool_choice to force tool usage
+            .bind_tools([get_weather], parallel_tool_calls=True, tool_choice="auto"))
 
 @fixture(scope="module")
 def anthropic_model():
@@ -60,12 +63,6 @@ class TestTools:
         # "The current weather in Boston is 72°F and sunny."
 
     def test_parallel_tool_invocation(self, model_name, request):
-        # TODO: Does not work for OpenAI ?
-        # TODO: Example at https://docs.langchain.com/oss/python/langchain/models#parallel-tool-calls
-        # not working with OpenAI => investigate
-        # "Most models supporting tool calling enable parallel tool calls by default.
-        # Some (including OpenAI and Anthropic) allow you to disable this feature."
-        # Does not explain why the OpenAI model only returns a single result
         model = request.getfixturevalue(model_name)
 
         response = model.invoke(
