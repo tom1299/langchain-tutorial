@@ -37,6 +37,7 @@ class TestBasics:
         model_response_text = model_response.text
 
         # TODO: Use proper technique to check content e.g. LLM as judge
+        # TODO: Does no longer work with gpt-5
         assert "parrots" in model_response_text.lower()
 
         _, output_tokens,_ = get_token_usage(model_response)

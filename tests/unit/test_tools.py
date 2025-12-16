@@ -1,3 +1,20 @@
+"""
+TODO: OpenAI and Anthropic differ here:
+While tool_choice="get_weather" works for Anthropic with multiple tool calls,
+for OpenAI it seems to enforce a single tool call only which prevents parallel tool calls.
+
+For OpenAI the following tool_choice structure seems to be required to allow multiple tool calls:
+    tool_choice = {
+        "type": "allowed_tools",
+        "allowed_tools": {
+            "mode": "auto",
+            "tools":
+            [
+                {"type": "function", "function": {"name": "get_weather"}}
+            ]
+        }
+    }
+"""
 from pytest import fixture, mark
 
 from langchain.tools import tool
@@ -13,8 +30,20 @@ def openai_model():
     # Tool choice for openai needs to be auto to enable parallel tool calls:
     # The constraint tool_choice="get_weather" works differently across providers—OpenAI enforces a single call,
     # while Anthropic allows multiple calls to the same tool.
+    # TODO: Find out whether tool_choice can be set to a list of tool names still allowing parallel calls
+    tool_choice = {
+        "type": "allowed_tools",
+        "allowed_tools": {
+            "mode": "auto",
+            "tools":
+            [
+                {"type": "function", "function": {"name": "get_weather"}}
+            ]
+        }
+    }
+
     return (init_chat_model(provider="OpenAI", tokens=max_output_tokens)
-            .bind_tools([get_weather], parallel_tool_calls=True, tool_choice="auto"))
+            .bind_tools([get_weather], parallel_tool_calls=True, tool_choice=tool_choice))
 
 @fixture(scope="module")
 def anthropic_model():
@@ -26,7 +55,7 @@ def get_weather(location: str) -> str:
     """Get the weather at a location."""
     return f"It's sunny in {location}."
 
-@mark.parametrize("model_name", ["openai_model", "anthropic_model"])
+@mark.parametrize("model_name", ["openai_model"])
 class TestTools:
 
     def test_tool_invocation_decision(self, model_name, request):

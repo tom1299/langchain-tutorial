@@ -11,7 +11,8 @@ def init_chat_model(provider: str, tokens: int) -> BaseChatModel:
     if provider == "OpenAI":
         model = langchain.chat_models.init_chat_model("gpt-4.1",
                                        timeout=30,
-                                       max_tokens=tokens
+                                       max_tokens=tokens,
+                                       # use_responses_api=True
                                        )
     elif provider == "Anthropic":
         model = langchain.chat_models.init_chat_model("claude-sonnet-4-5-20250929",
