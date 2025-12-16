@@ -55,7 +55,7 @@ def get_weather(location: str) -> str:
     """Get the weather at a location."""
     return f"It's sunny in {location}."
 
-@mark.parametrize("model_name", ["openai_model"])
+@mark.parametrize("model_name", ["openai_model", "anthropic_model"])
 class TestTools:
 
     def test_tool_invocation_decision(self, model_name, request):
