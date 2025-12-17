@@ -133,3 +133,27 @@ class TestOpenAITools:
         print("Final output:")
         print(response.model_dump_json(indent=2))
         print("\n" + response.output_text)
+
+    def test_openai_docs_example(self):
+        from langchain.chat_models import init_chat_model
+        from pydantic import BaseModel
+
+        class ResponseSchema(BaseModel):
+            response: str
+
+        def get_weather(location: str) -> str:
+            """Get weather at a location."""
+            return f"It's always sunny in {location}!"
+
+        model = init_chat_model("openai:gpt-4o-mini")
+
+        structured_model = model.with_structured_output(
+            ResponseSchema,
+            tools=[get_weather],
+            strict=True,
+            include_raw=False,
+        )
+
+        response = structured_model.invoke("What's the weather in Boston?")
+        print(response)
+

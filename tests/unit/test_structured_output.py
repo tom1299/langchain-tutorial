@@ -21,7 +21,7 @@ class Actor(BaseModel):
 
 class Movie(BaseModel):
     """A movie with details."""
-    # TODO: cast not filled by anthropic => Find out why ?
+    # TODO: cast not filled by anthropic => Find out why ? See below
     cast: Optional[list[Actor]] = Field(None, description="List of main actors in the movie")
     director: str = Field(..., description="The director of the movie")
     rating: float = Field(..., description="The movie's rating out of 10")
