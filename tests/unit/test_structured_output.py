@@ -1,7 +1,6 @@
 from pydantic import BaseModel, Field
 from pytest import fixture, mark
 from typing import Optional
-import warnings
 
 from lctutorial import init_chat_model
 
@@ -35,8 +34,21 @@ class TestStructuredOutput:
     def test_pydantic(self, model_name, request):
         model = request.getfixturevalue(model_name)
 
-        model_with_structure = model.with_structured_output(Movie, include_raw=True)
-        response = model_with_structure.invoke("Provide details about the movie Inception")
+        if model_name == "anthropic_model":
+            # Only works with json schema.
+            # See https://docs.langchain.com/oss/python/integrations/chat/anthropic#structured-output
+            model_with_structure = model.with_structured_output(Movie, include_raw=True, method="json_schema")
+        else:
+            model_with_structure = model.with_structured_output(Movie, include_raw=True)
+
+        user_message = [
+            {
+                "role": "user",
+                "content": "Provide details about the movie Inception"
+            }
+        ]
+
+        response = model_with_structure.invoke(user_message)
 
         assert response["parsing_error"] is None
 
@@ -44,16 +56,6 @@ class TestStructuredOutput:
         movie: Movie = response["parsed"]
 
         assert movie.title == "Inception"
-
-        if model_name == "anthropic_model":
-            # Anthropic model does not return cast information properly yet
-            # TODO: Missing actor seems to be related to nested schema, since lead_actor is returned properly
-            assert movie.cast is None
-            warnings.warn(
-                "Anthropic model does not return cast information; skipping cast assertions",
-                UserWarning,
-            )
-            return
 
         assert len(movie.cast) > 0
         actor: Actor = movie.cast[0]
