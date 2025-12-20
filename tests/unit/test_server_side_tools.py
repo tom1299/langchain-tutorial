@@ -1,8 +1,8 @@
 from anthropic import Anthropic
 from anthropic.types import Message
-from openai import BadRequestError
+from openai import BadRequestError, OpenAI
 from openai.types.responses import ResponseTextConfigParam
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pytest import fail, fixture, mark
 
 from lctutorial import init_chat_model
@@ -101,50 +101,62 @@ class TestServerSideTools:
         fail("Did not find text content block in response")
 
     def test_openai_api_direct_with_search_and_structured_output(self):
-        from openai import OpenAI
 
         class ClosingValue(BaseModel):
             value: float
 
-        assert isinstance(ClosingValue(value=0.0), BaseModel)
-
         client = OpenAI()
 
-        # Build a JSON-schema based text config from the Pydantic model.
-        # Support both pydantic v2 (.model_json_schema) and v1 (.schema).
-        try:
-            json_schema = ClosingValue.model_json_schema()
-        except AttributeError:
-            json_schema = ClosingValue.schema()
+        response = client.responses.parse(
+            model="gpt-5",
+            input="How did the Dow Jones close yesterday?",
+            tools=[
+                {
+                    "type": "web_search",
+                    "search_context_size": "low",
+                    "filters": {
+                        "allowed_domains": [
+                            "finance.yahoo.com"
+                        ]
+                    }
+                }
+            ],
+            text_format=ClosingValue
+        )
 
-        # Ensure we have a mapping for the SDK 'schema' field
-        if not isinstance(json_schema, dict):
-            # fallback: try to coerce to dict
-            json_schema = dict(json_schema)
+        closing_value: ClosingValue = response.output_parsed
+        assert 30000 < closing_value.value < 60000
 
-        # Build a typed `text` config (ResponseTextConfigParam) that uses
-        # the JSON-schema response format. Per SDK this must live under
-        # the `format` key and follow the ResponseFormatTextJSONSchemaConfigParam shape.
-        schema =  {
-          "type": "object",
-        }
+    def test_openai_api_direct_with_web_search(self):
+        """
+        From community.openai.com/t/web-search-on-responses-api-breaks-inline-citations-when-passed-a-pydantic-data-model-as-text-format/1312488
+        """
+        client = OpenAI()
 
+        class Company(BaseModel):
+            name: str = Field(..., description="Name of the company")
+            summary: str = Field(..., description="Summary of the company")
 
-        text_config: ResponseTextConfigParam = {
-            "format": {
-                "type": "json_object"
-            }
-        }
+        response = client.responses.parse(
+            model="gpt-5.1",
+            tools=[
+                {
+                    "type": "web_search",
+                    "search_context_size": "low",
+                    "external_web_access": False
+                }
+            ],
+            input=[{"role": "user", "content": "Which company was the first one to create reusable rockets?"}],
+            text_format=Company
+        )
 
-        try:
-            response = client.responses.create(
-                model="gpt-5",
-                input="How did the Dow Jones close yesterday? Output just the closing value.",
-                tools=[{"type": "web_search"}],
-                text=text_config,
-            )
-            print(response)
-        except BadRequestError as e:
-            # Error code: 400 - {'error': {'message': 'Web Search cannot be used with JSON mode.',
-            # 'type': 'invalid_request_error', 'param': 'response_format', 'code': None}}
-            assert e.status_code == 400
+        web_search_called = False
+        for output in response.output:
+            if output.type == "web_search_call":
+                assert output.status == "completed"
+                web_search_called = True
+
+        assert web_search_called, "Web search tool was not called"
+
+        company: Company = response.output_parsed
+        assert "spacex" in company.summary.lower()
