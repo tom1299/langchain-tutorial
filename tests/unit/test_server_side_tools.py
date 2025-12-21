@@ -6,6 +6,7 @@ web pages directly, doing some local parsing and feeding that to the model.
 """
 from anthropic import Anthropic
 from anthropic.types import Message
+from langchain_core.callbacks import get_usage_metadata_callback
 from openai import OpenAI
 from pydantic import BaseModel
 
@@ -33,7 +34,12 @@ class TestServerSideTools:
             tools=[tool]
         )
 
-        result = structured_model.invoke("How did the Dow Jones close yesterday?")
+        result = None
+        with get_usage_metadata_callback() as cb:
+            result = structured_model.invoke("How did the Dow Jones close yesterday?")
+            # Web search can be token intensive, so print usage metadata
+            # TODO: Compare with direct retrieval of web pages, pre -parsing, and feeding to model
+            print(cb.usage_metadata)
 
         closing_value: ClosingValue = result
         assert 30000 < closing_value.value < 60000
