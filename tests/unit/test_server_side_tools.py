@@ -8,6 +8,7 @@ from anthropic import Anthropic
 from anthropic.types import Message
 from langchain_core.callbacks import get_usage_metadata_callback
 from openai import OpenAI
+from playwright.sync_api import sync_playwright
 from pydantic import BaseModel
 
 from lctutorial import init_chat_model
@@ -39,6 +40,7 @@ class TestServerSideTools:
             result = structured_model.invoke("How did the Dow Jones close yesterday?")
             # Web search can be token intensive, so print usage metadata
             # TODO: Compare with direct retrieval of web pages, pre -parsing, and feeding to model
+            # Total tokens ~ 12000
             print(cb.usage_metadata)
 
         closing_value: ClosingValue = result
@@ -118,4 +120,45 @@ class TestServerSideTools:
         )
 
         closing_value: ClosingValue = response.output_parsed
+        assert 30000 < closing_value.value < 60000
+
+    def test_local_websearch_tool(self):
+        page_content = None
+        with sync_playwright() as p:
+
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+
+            page.goto("https://www.google.com/finance/quote/.DJI:INDEXDJX", wait_until="networkidle")
+
+            page.wait_for_selector('role=button[name="Accept all"]', state="visible")
+            page.click('role=button[name="Accept all"]')
+
+            page.wait_for_selector('main', state="visible")
+
+            page_content = page.locator('main').inner_text()
+
+            browser.close()
+
+        assert page_content is not None
+
+        model = init_chat_model(
+            provider="OpenAI",
+            tokens=4000,
+            model_name="gpt-5",
+            timeout=120
+        )
+
+        structured_model = model.with_structured_output(
+            ClosingValue
+        )
+
+        result = None
+        with get_usage_metadata_callback() as cb:
+            result = structured_model.invoke(
+                "Extract the Dow Jones closing value from the text below:\n" + page_content)
+            #  total tokens ~ 600
+            print(cb.usage_metadata)
+
+        closing_value: ClosingValue = result
         assert 30000 < closing_value.value < 60000
