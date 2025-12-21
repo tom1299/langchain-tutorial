@@ -1,3 +1,9 @@
+"""
+Test for web search
+
+TODO: Websearch seems to be slow and token intensive, consider another approach like fetching
+web pages directly, doing some local parsing and feeding that to the model.
+"""
 from anthropic import Anthropic
 from anthropic.types import Message
 from openai import OpenAI
