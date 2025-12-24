@@ -139,3 +139,8 @@ class TestConfigurableModels:
         final_response = model_with_structure_and_tools.invoke(messages,
                                                      config={"configurable": {"model": "claude-sonnet-4-5-20250929"}})
         print(repr(final_response))
+
+        # TODO: Make an agent test with get_weather from a pydatnic function tool:
+        # https://docs.langchain.com/oss/python/langchain/tools
+        # https://docs.langchain.com/oss/python/integrations/chat/openai#tool-calling
+        # Test whether the agent can invoke the tool
