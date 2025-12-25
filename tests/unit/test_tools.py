@@ -70,7 +70,7 @@ class TestTools:
             assert tool_call['name'] == "get_weather"
             assert tool_call['args']['location'] == "Boston"
 
-        assert model_decided_to_call_tool, "Model did decide to call get_weather tool"
+        assert model_decided_to_call_tool, "Model did not decide to call get_weather tool"
 
     def test_explicit_tool_invocation(self, model_name, request):
         model = request.getfixturevalue(model_name)

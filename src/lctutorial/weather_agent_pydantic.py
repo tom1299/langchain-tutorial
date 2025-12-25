@@ -48,7 +48,7 @@ agent = create_agent(
 )
 
 agent_response = agent.invoke(
-    {"messages": [{"role": "user", "content": f"what is the weather in San Francisco?"}]},)
+    {"messages": [{"role": "user", "content": f"what is the weather in San Francisco?"}]})
 
 tool_message: ToolMessage = agent_response["messages"][2]
 assert tool_message.content == "The weather in San Francisco is always sunny"
@@ -60,7 +60,7 @@ agent = create_agent(
 )
 
 agent_response = agent.invoke(
-    {"messages": [{"role": "user", "content": f"what is the weather in San Francisco?"}]},)
+    {"messages": [{"role": "user", "content": f"what is the weather in San Francisco?"}]})
 
 tool_message: ToolMessage = agent_response["messages"][2]
 assert tool_message.content == "location='San Francisco'"
