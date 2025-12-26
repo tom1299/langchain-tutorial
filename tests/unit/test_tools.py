@@ -15,7 +15,9 @@ For OpenAI the following tool_choice structure seems to be required to allow mul
         }
     }
 """
-from pytest import fixture, mark
+from pytest import fail, fixture, mark
+
+from langchain.messages import AIMessage, HumanMessage, ToolMessage
 
 from langchain.tools import tool
 
@@ -132,3 +134,51 @@ class TestTools:
                     print(f"Args: {args}")
 
         assert len(tool_invocation_ids) == 2, "Model did not stream multiple tool calls"
+
+    def test_tool_invocation_with_custom_tool_message(self, model_name, request):
+
+        # TODO: Example here missing HumanMessage import:
+        # https://docs.langchain.com/oss/python/langchain/messages#tool-message
+        #
+        # Example link to artifact usage with RetrieverTool or RAG agent does not cover
+        # the usage of artifacts: https://docs.langchain.com/oss/python/langchain/messages#tool-message
+
+        model = None
+        if model_name == "anthropic_model":
+            model = init_chat_model(provider="Anthropic", tokens=max_output_tokens)
+        elif model_name == "openai_model":
+            model = init_chat_model(provider="OpenAI", tokens=max_output_tokens)
+        else:
+            fail(f"Unknown model name: {model_name}")
+
+        # After a model makes a tool call
+        # (Here, we demonstrate manually creating the messages for brevity)
+        ai_message = AIMessage(
+            content=[],
+            tool_calls=[{
+                "name": "get_weather",
+                "args": {"location": "San Francisco"},
+                "id": "call_123"
+            }]
+        )
+
+        # Execute tool and create result message
+        weather_result = "Sunny, 72°F"
+        tool_message = ToolMessage(
+            content=weather_result,
+            tool_call_id="call_123"  # Must match the call ID
+        )
+
+        # Continue conversation
+        messages = [
+            HumanMessage("What's the weather in San Francisco?"),
+            ai_message,  # Model's tool call
+            tool_message,  # Tool execution result
+        ]
+        response: AIMessage = model.invoke(messages)  # Model processes the result
+
+        assert response.content is not None, "Model did not generate a human readable response"
+
+        assert "72" in response.content and "sunny" in response.content
+
+        print(repr(response))
