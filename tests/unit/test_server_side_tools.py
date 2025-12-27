@@ -7,6 +7,7 @@ web pages directly, doing some local parsing and feeding that to the model.
 from anthropic import Anthropic
 from anthropic.types import Message
 from langchain_core.callbacks import get_usage_metadata_callback
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 from openai import OpenAI
 from playwright.sync_api import sync_playwright
 from pydantic import BaseModel
@@ -162,3 +163,6 @@ class TestServerSideTools:
 
         closing_value: ClosingValue = result
         assert 30000 < closing_value.value < 60000
+
+# TODO: Make web search tool call with standard content blocks. See:
+# https://docs.langchain.com/oss/python/langchain/messages#server-side-tool-execution
