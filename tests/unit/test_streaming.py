@@ -13,7 +13,7 @@ def get_weather(city: str) -> str:
     return f"It's always sunny in {city}!"
 
 @mark.parametrize("model_name", ["gpt-5-nano", "claude-sonnet-4-5-20250929"])
-class TestBasics:
+class TestStreaming:
 
     def test_agent_progress(self, model_name, request):
         agent = create_agent(
@@ -85,6 +85,7 @@ class TestBasics:
 
         def get_weather_for_city(city: str) -> str:
             """Get weather for a given city."""
+            # TODO: Examine ways to decouple tools from `get_stream_writer`
             writer = get_stream_writer()
             # stream any arbitrary data
             writer(f"Looking up data for city: {city}")
