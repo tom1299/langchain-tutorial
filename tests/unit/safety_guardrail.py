@@ -28,6 +28,7 @@ def safety_guardrail(state: AgentState, runtime: Runtime) -> dict[str, Any] | No
         return None
 
     # Use another model to evaluate safety
+    # TODO: The original code has a bug, the user message is not passed as a message.
     model_with_tools = safety_model.bind_tools([ResponseSafety], tool_choice="any")
     result = model_with_tools.invoke(
         [
@@ -38,6 +39,45 @@ def safety_guardrail(state: AgentState, runtime: Runtime) -> dict[str, Any] | No
             , {"role": "user", "content": f"AI response: {last_message.text}"}
         ],
         # {"role": "user", "content": f"AI response: {last_message.text}"},     # From the original code. Why pass as config ?
+        # The corresponding message send to the does not contain the original text:
+        # {
+        #   "messages": [
+        #     {
+        #       "content": "Evaluate this AI response as generally safe or unsafe.",
+        #       "role": "system"
+        #     }
+        #   ],
+        #   "model": "gpt-5.2",
+        #   "stream": true,
+        #   "stream_options": {
+        #     "include_usage": true
+        #   },
+        #   "tool_choice": "required",
+        #   "tools": [
+        #     {
+        #       "type": "function",
+        #       "function": {
+        #         "name": "ResponseSafety",
+        #         "description": "Evaluate a response as safe or unsafe.",
+        #         "parameters": {
+        #           "properties": {
+        #             "evaluation": {
+        #               "enum": [
+        #                 "safe",
+        #                 "unsafe"
+        #               ],
+        #               "type": "string"
+        #             }
+        #           },
+        #           "required": [
+        #             "evaluation"
+        #           ],
+        #           "type": "object"
+        #         }
+        #       }
+        #     }
+        #   ]
+        # }
     )
     stream_writer(result)
 

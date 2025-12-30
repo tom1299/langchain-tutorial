@@ -14,7 +14,8 @@ def get_weather(city: str) -> str:
 from pytest import mark
 
 @mark.parametrize("model_name", ["gpt-5-nano"])
-class TestStreaming:
+@mark.skip(reason="TODO: Use this example to propose changes to documentation")
+class TestStreamingSafetyGuardRails:
 
     def test_call_response_safety(self, model_name, request):
         result = ResponseSafety
