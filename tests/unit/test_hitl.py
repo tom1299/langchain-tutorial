@@ -28,6 +28,42 @@ def get_weather(location: str) -> str:
     """Get the weather at a location."""
     return f"It's sunny in {location}."
 
+
+def create_hitl_agent(model):
+    model.bind_tools([get_weather])
+
+    # Dynamic callable description
+    def format_tool_description(
+            tool_call: ToolCall,
+            state: AgentState,
+            runtime: Runtime[ContextT]
+    ) -> str:
+        import json
+        return (
+            f"Tool: {tool_call['name']}\\n"
+            f"Arguments:\\n{json.dumps(tool_call['args'], indent=2)}"
+        )
+
+    config = InterruptOnConfig(
+        allowed_decisions=["approve", "edit", "reject"],
+        description=format_tool_description
+    )
+
+    agent = create_agent(
+        model=model,
+        tools=[get_weather],
+        middleware=[
+            HumanInTheLoopMiddleware(
+                interrupt_on={f"get_weather": config}
+            ),
+        ],
+        # Human-in-the-loop requires checkpointing to handle interrupts.
+        # In production, use a persistent checkpointer like AsyncPostgresSaver.
+        checkpointer=InMemorySaver(),
+    )
+    return agent
+
+
 @mark.parametrize("model_name", ["anthropic_model", "openai_model"])
 class TestHITLBasics:
 
@@ -40,37 +76,8 @@ class TestHITLBasics:
         # TODO: Edit tool call response, so that the response from the tool indicates editing to avoid confusion
 
         model = request.getfixturevalue(model_name)
-        model.bind_tools([get_weather])
 
-        # Dynamic callable description
-        def format_tool_description(
-            tool_call: ToolCall,
-            state: AgentState,
-            runtime: Runtime[ContextT]
-        ) -> str:
-            import json
-            return (
-                f"Tool: {tool_call['name']}\\n"
-                f"Arguments:\\n{json.dumps(tool_call['args'], indent=2)}"
-            )
-
-        config = InterruptOnConfig(
-            allowed_decisions=["approve", "edit", "reject"],
-            description=format_tool_description
-        )
-
-        agent = create_agent(
-            model=model,
-            tools=[get_weather],
-            middleware=[
-                HumanInTheLoopMiddleware(
-                    interrupt_on={f"get_weather": config}
-                ),
-            ],
-            # Human-in-the-loop requires checkpointing to handle interrupts.
-            # In production, use a persistent checkpointer like AsyncPostgresSaver.
-            checkpointer=InMemorySaver(),
-        )
+        agent = create_hitl_agent(model)
 
         config = {"configurable": {"thread_id": "some_id"}} # Needed for later continuation of the thread
         result = agent.invoke(
@@ -116,3 +123,39 @@ class TestHITLBasics:
         # TODO: How to prevent this confusion in the final response while still allowing edits to tool calls?
         model_response = messages[-1]
         print(model_response.text)
+
+    def test_interrupts_with_streaming(self, model_name, request):
+        # TODO: Align this example with the same example on the streaming documentation page:
+        # https://docs.langchain.com/oss/python/langchain/streaming#streaming-with-human-in-the-loop
+        model = request.getfixturevalue(model_name)
+
+        agent = create_hitl_agent(model)
+        config = {"configurable": {"thread_id": "some_id"}}
+
+        for mode, chunk in agent.stream(
+            {"messages": [{"role": "user", "content": "What is the weather in Boston?"}]},
+            config=config,                  # TODO: In original example, config is missing
+            stream_mode=["updates", "messages"],
+        ):
+            if mode == "messages":
+                # LLM token
+                token, metadata = chunk
+                if token.content:
+                    print(token.content, end="", flush=True)
+            elif mode == "updates":
+                # Check for interrupt
+                if "__interrupt__" in chunk:
+                    print(f"\n\nInterrupt: {chunk['__interrupt__']}")
+
+        for mode, chunk in agent.stream(
+            Command(
+                resume={"decisions": [{"type": "edit", "edited_action": {"name": "get_weather",
+                                                                         "args": {"location": "San Francisco"}}}]}
+            ),
+            config=config,
+            stream_mode=["updates", "messages"],
+        ):
+            if mode == "messages":
+                token, metadata = chunk
+                if token.content:
+                    print(token.content, end="", flush=True)
