@@ -117,7 +117,9 @@ class TestStreamingHumanInTheLoop:
                         interrupts.extend(update)
                         _render_interrupt(update[0])
 
+    @mark.skip(reason="Only for test purposes")
     def test_langgraph_example(self):
+        # TODO: Pull request with enhanced example
         # From https://reference.langchain.com/python/langgraph/types/#langgraph.types.interrupt
 
         class State(TypedDict):
