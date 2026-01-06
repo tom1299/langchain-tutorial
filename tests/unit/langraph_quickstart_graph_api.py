@@ -58,7 +58,6 @@ import operator
 
 class MessagesState(TypedDict):
     messages: Annotated[list[AnyMessage], operator.add]
-    llm_calls: int
 
 # Step 3: Define model node
 from langchain.messages import SystemMessage
@@ -77,8 +76,7 @@ def llm_call(state: dict):
                 ]
                 + state["messages"]
             )
-        ],
-        "llm_calls": state.get('llm_calls', 0) + 1
+        ]
     }
 
 
