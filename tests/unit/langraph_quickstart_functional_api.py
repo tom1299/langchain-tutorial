@@ -96,10 +96,9 @@ def agent(messages: list[BaseMessage]):
             break
 
         # Execute tools
-        tool_result_futures = [
-            call_tool(tool_call) for tool_call in model_response.tool_calls
+        tool_results = [
+            call_tool(tool_call).result() for tool_call in model_response.tool_calls
         ]
-        tool_results = [fut.result() for fut in tool_result_futures]
         messages = add_messages(messages, *tool_results)
 
     return messages
