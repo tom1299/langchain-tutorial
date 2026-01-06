@@ -106,6 +106,5 @@ def agent(messages: list[BaseMessage]):
 
 # Invoke
 messages = [HumanMessage(content="Add 3 and 4.")]
-for chunk in agent.stream(messages, stream_mode="updates"):
-    print(chunk)
-    print("\n")
+for message in agent.invoke(messages):
+    message.pretty_print()
