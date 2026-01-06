@@ -36,3 +36,6 @@ markers = [
     "unit: Unit tests",
     "integration: Integration tests",
 ]
+
+[dependency-groups]
+dev = []
