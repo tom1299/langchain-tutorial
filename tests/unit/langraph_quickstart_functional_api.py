@@ -95,7 +95,7 @@ def agent(messages: list[BaseMessage]):
         if not model_response.tool_calls:
             break
 
-        # Execute tools
+        # Call tools
         tool_results = [
             call_tool(tool_call).result() for tool_call in model_response.tool_calls
         ]
