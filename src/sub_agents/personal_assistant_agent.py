@@ -14,6 +14,7 @@ from langchain.chat_models import init_chat_model
 
 from langchain.agents.middleware import HumanInTheLoopMiddleware
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.prebuilt.tool_node import ToolRuntime
 
 from langgraph.types import Command
 
@@ -103,8 +104,26 @@ email_agent = create_agent(
 # Step 3: Wrap sub-agents as tools for the supervisor
 # ============================================================================
 
+# @tool # TODO: parse docstring is False per default, so the docstring is not used by the agent ?
+# def schedule_event(request: str) -> str:
+#     """Schedule calendar events using natural language.
+#
+#     Use this when the user wants to create, modify, or check calendar appointments.
+#     Handles date/time parsing, availability checking, and event creation.
+#
+#     Input: Natural language scheduling request (e.g., 'meeting with design team
+#     next Tuesday at 2pm')
+#     """
+#     result = calendar_agent.invoke({
+#         "messages": [{"role": "user", "content": request}]
+#     })
+#     return result["messages"][-1].text
+
 @tool
-def schedule_event(request: str) -> str:
+def schedule_event(
+    request: str,
+    runtime: ToolRuntime
+) -> str:
     """Schedule calendar events using natural language.
 
     Use this when the user wants to create, modify, or check calendar appointments.
@@ -113,14 +132,30 @@ def schedule_event(request: str) -> str:
     Input: Natural language scheduling request (e.g., 'meeting with design team
     next Tuesday at 2pm')
     """
+    # Customize context received by sub-agent
+    original_user_message = next(
+        message for message in runtime.state["messages"]
+        if message.type == "human"
+    )
+    prompt = (
+        "You are assisting with the following user inquiry:\n\n"
+        f"{original_user_message.text}\n\n"
+        "You are tasked with the following sub-request:\n\n"
+        f"{request}"
+    )
     result = calendar_agent.invoke({
-        "messages": [{"role": "user", "content": request}]
+        "messages": [{"role": "user", "content": prompt}],
     })
     return result["messages"][-1].text
 
 
+# TODO: Use context enrichment for the email agent seems to be more suitable,
+# as it produces visible results in the final output.
 @tool
-def manage_email(request: str) -> str:
+def manage_email(
+        request: str,
+        runtime: ToolRuntime
+) -> str:
     """Send emails using natural language.
 
     Use this when the user wants to send notifications, reminders, or any email
@@ -130,8 +165,20 @@ def manage_email(request: str) -> str:
     Input: Natural language email request (e.g., 'send them a reminder about
     the meeting')
     """
+    original_user_message = next(
+        message for message in runtime.state["messages"]
+        if message.type == "human"
+    )
+
+    prompt = (
+        "You are assisting with the following user inquiry:\n\n"
+        f"{original_user_message.text}\n\n"
+        "You are tasked with the following sub-request:\n\n"
+        f"{request}"
+    )
+
     result = email_agent.invoke({
-        "messages": [{"role": "user", "content": request}]
+        "messages": [{"role": "user", "content": prompt}]
     })
     return result["messages"][-1].text
 
