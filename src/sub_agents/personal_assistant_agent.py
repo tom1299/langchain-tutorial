@@ -20,6 +20,8 @@ from langgraph.types import Command
 
 load_dotenv()
 
+# TODO: Tool calls doc string is not parsed per default ?
+
 # ============================================================================
 # Step 1: Define low-level API tools (stubbed)
 # ============================================================================

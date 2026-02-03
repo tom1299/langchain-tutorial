@@ -203,6 +203,7 @@ def main() -> None:
         """
         with _JOBS_LOCK:
             job = _JOBS[job_id]
+            # TODO: None check like in the other examples ?
             job.status = "running"
 
         reviewer_feedback = ""
@@ -256,6 +257,8 @@ def main() -> None:
                 {"messages": [("user", writer_input)]}
             )
             draft = _final_agent_text(writer_state).strip()
+
+            # TODO: Why have these two locks separately ? Could be combined into one.
             with _JOBS_LOCK:
                 job.draft = draft
 
@@ -284,6 +287,7 @@ def main() -> None:
             decision, research_task, feedback = _parse_reviewer(review_text)
 
             with _JOBS_LOCK:
+                # TODO: Job could have changed during subagent calls => Refresh job ?
                 job.review = review_text
                 job.decision = decision
                 job.research_task = research_task
@@ -379,6 +383,7 @@ def main() -> None:
             # Subagent statuses reflect the CURRENT iteration artifacts:
             # - If an artifact is present, that step is completed for the current loop.
             # - Otherwise, the step is pending unless it is the currently active stage.
+            # TODO: job would need to be refreshed while holding the lock ?
             def _step_status(step: Stage) -> JobStatus:
                 if step == "research":
                     if job.research is not None:
@@ -420,6 +425,8 @@ def main() -> None:
             return {"state": "failed", "error": "UNKNOWN_JOB_ID"}
 
         # IMPORTANT: call the *impl* function, not the tool object.
+        # TODO: Pass job and lock whole invocation of _check_status_impl
+        # Remove any locking from _check_status_impl
         status_payload = _check_status_impl(job_id)
         if status_payload["state"] in ("pending", "running"):
             return {
@@ -476,41 +483,42 @@ def main() -> None:
     thread_id = os.getenv("THREAD_ID") or f"demo-async-subagents-{uuid.uuid4().hex}"
     config = {"configurable": {"thread_id": thread_id}}
 
-    with PostgresSaver.from_conn_string(postgres_uri) as checkpointer:
-        checkpointer.setup()
-        app = workflow.compile(checkpointer=checkpointer)
+    from langgraph.checkpoint.memory import InMemorySaver
+# with PostgresSaver.from_conn_string(postgres_uri) as checkpointer:
+    # checkpointer.setup()
+    app = workflow.compile(checkpointer=InMemorySaver())
 
-        print("\n=== Async subagents demo (three-tool pattern) ===")
-        print(f"thread_id={thread_id!r}")
-        print("Type a request, then 'status', then 'finalize'. Type 'exit' to quit.\n")
+    print("\n=== Async subagents demo (three-tool pattern) ===")
+    print(f"thread_id={thread_id!r}")
+    print("Type a request, then 'status', then 'finalize'. Type 'exit' to quit.\n")
 
-        while True:
+    while True:
+        try:
+            user_text = input("> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nbye")
+            return
+
+        if not user_text:
+            continue
+        if user_text.lower() in {"exit", "quit"}:
+            print("bye")
+            return
+
+        # Minor convenience: if the user types "wait", sleep a bit so jobs finish.
+        if user_text.lower().startswith("wait"):
             try:
-                user_text = input("> ").strip()
-            except (EOFError, KeyboardInterrupt):
-                print("\nbye")
-                return
+                secs = float(user_text.split(maxsplit=1)[1])
+            except Exception:  # noqa: BLE001 (demo)
+                secs = 2.0
+            print(f"(sleeping {secs}s)")
+            time.sleep(secs)
+            continue
 
-            if not user_text:
-                continue
-            if user_text.lower() in {"exit", "quit"}:
-                print("bye")
-                return
-
-            # Minor convenience: if the user types "wait", sleep a bit so jobs finish.
-            if user_text.lower().startswith("wait"):
-                try:
-                    secs = float(user_text.split(maxsplit=1)[1])
-                except Exception:  # noqa: BLE001 (demo)
-                    secs = 2.0
-                print(f"(sleeping {secs}s)")
-                time.sleep(secs)
-                continue
-
-            result = app.invoke({"messages": [("user", user_text)]}, config=config)
-            messages = result.get("messages") or []
-            if messages:
-                print("\n" + (getattr(messages[-1], "content", "") or "").strip() + "\n")
+        result = app.invoke({"messages": [("user", user_text)]}, config=config)
+        messages = result.get("messages") or []
+        if messages:
+            print("\n" + (getattr(messages[-1], "content", "") or "").strip() + "\n")
 
 
 if __name__ == "__main__":
