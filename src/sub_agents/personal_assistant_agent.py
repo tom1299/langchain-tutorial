@@ -4,11 +4,9 @@ Personal Assistant Supervisor Example
 This example demonstrates the tool calling pattern for multi-agent systems.
 A supervisor agent coordinates specialized sub-agents (calendar and email)
 that are wrapped as tools.
-From https://docs.langchain.com/oss/python/langchain/multi-agent/subagents-personal-assistant#openai
 """
 
 from dotenv import load_dotenv
-# TODO: Misses init of chat model with provider token
 
 from langchain.tools import tool
 from langchain.agents import create_agent
@@ -23,8 +21,8 @@ load_dotenv()
 @tool
 def create_calendar_event(
     title: str,
-    start_time: str,  # ISO format: "2024-01-15T14:00:00Z" TODO: There are many different formats, is this accessible to the agent ?
-    end_time: str,    # ISO format: "2024-01-15T15:00:00Z"
+    start_time: str,  # ISO format: "2024-01-15T14:00:00"
+    end_time: str,    # ISO format: "2024-01-15T15:00:00"
     attendees: list[str],  # email addresses
     location: str = ""
 ) -> str:
@@ -44,32 +42,29 @@ def send_email(
 
 
 @tool
-def get_available_time_slots(           # Agent never takes schedule into account when no appropriate time slot is available
+def get_available_time_slots(
     attendees: list[str],
-    date: str,  # ISO format: "2024-01-15"  TODO: Diferent formats ?
+    date: str,  # ISO format: "2024-01-15"
     duration_minutes: int
 ) -> list[str]:
     """Check calendar availability for given attendees on a specific date."""
-    return ["18:00"]
-    # return ["09:00", "14:00", "16:00"]
+    return ["09:00", "14:00", "16:00"]
 
 
 # ============================================================================
 # Step 2: Create specialized sub-agents
 # ============================================================================
 
-# model = init_chat_model("claude-haiku-4-5-20251001")  # for example TODO: Strange results...
 model = init_chat_model("gpt-4.1")
 
 calendar_agent = create_agent(
     model,
     tools=[create_calendar_event, get_available_time_slots],
     system_prompt=(
-        "You are a calendar scheduling assistant. "         # TODO: Better appointment scheduling ?
+        "You are a calendar scheduling assistant. "
         "Parse natural language scheduling requests (e.g., 'next Tuesday at 2pm') "
-        "into proper ISO datetime formats. "                # TODO: Formats are different tools
-        "Use get_available_time_slots to check availability when needed. " # TODO: Mention tool names ?
-        "If there are no matching time slots, suggest alternative times and do not send a reminder email. "
+        "into proper ISO datetime formats. "
+        "Use get_available_time_slots to check availability when needed. "
         "Use create_calendar_event to schedule events. "
         "Always confirm what was scheduled in your final response."
     )
@@ -146,7 +141,7 @@ supervisor_agent = create_agent(
 if __name__ == "__main__":
     # Example: User request requiring both calendar and email coordination
     user_request = (
-        "Schedule a meeting with the design and development team next Tuesday at 2pm for 1 hour, "
+        "Schedule a meeting with the design team next Tuesday at 2pm for 1 hour, "
         "and send them an email reminder about reviewing the new mockups."
     )
 
