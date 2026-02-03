@@ -52,9 +52,17 @@ def anthropic_model():
     return (init_chat_model(provider="Anthropic", tokens=max_output_tokens)
             .bind_tools([get_weather], tool_choice="get_weather")) # Specify tool_choice to force tool usage
 
-@tool
+@tool(parse_docstring=True)
 def get_weather(location: str) -> str:
-    """Get the weather at a location."""
+    """
+    Get the weather at a location.
+
+    Args:
+        location (str): The location to get the weather for. For example, "Boston" or "Tokyo".
+
+    Returns:
+        str: The weather.
+    """
     return f"It's sunny in {location}."
 
 @mark.parametrize("model_name", ["openai_model", "anthropic_model"])
