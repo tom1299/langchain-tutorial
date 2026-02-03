@@ -12,6 +12,11 @@ from langchain.tools import tool
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
 
+from langchain.agents.middleware import HumanInTheLoopMiddleware
+from langgraph.checkpoint.memory import InMemorySaver
+
+from langgraph.types import Command
+
 load_dotenv()
 
 # ============================================================================
@@ -67,7 +72,13 @@ calendar_agent = create_agent(
         "Use get_available_time_slots to check availability when needed. "
         "Use create_calendar_event to schedule events. "
         "Always confirm what was scheduled in your final response."
-    )
+    ),
+    middleware=[
+        HumanInTheLoopMiddleware(
+            interrupt_on={"create_calendar_event": True},
+            description_prefix="Calendar event pending approval",
+        )
+    ]
 )
 
 email_agent = create_agent(
@@ -79,7 +90,13 @@ email_agent = create_agent(
         "Extract recipient information and craft appropriate subject lines and body text. "
         "Use send_email to send the message. "
         "Always confirm what was sent in your final response."
-    )
+    ),
+    middleware=[
+        HumanInTheLoopMiddleware(
+            interrupt_on={"send_email": True},
+            description_prefix="Outbound email pending approval",
+        )
+    ]
 )
 
 # ============================================================================
@@ -131,7 +148,8 @@ supervisor_agent = create_agent(
         "You can schedule calendar events and send emails. "
         "Break down user requests into appropriate tool calls and coordinate the results. "
         "When a request involves multiple actions, use multiple tools in sequence."
-    )
+    ),
+    checkpointer=InMemorySaver()
 )
 
 # ============================================================================
@@ -148,9 +166,49 @@ if __name__ == "__main__":
     print("User Request:", user_request)
     print("\n" + "="*80 + "\n")
 
+    config = {"configurable": {"thread_id": "6"}}
+
+    interrupts = []
     for step in supervisor_agent.stream(
-        {"messages": [{"role": "user", "content": user_request}]}
+            {"messages": [{"role": "user", "content": user_request}]},
+            config,
     ):
         for update in step.values():
-            for message in update.get("messages", []):
-                message.pretty_print()
+            if isinstance(update, dict):
+                for message in update.get("messages", []):
+                    message.pretty_print()
+            else:
+                interrupt_ = update[0]
+                interrupts.append(interrupt_)
+                print(f"\nINTERRUPTED: {interrupt_.id}")
+
+    for interrupt_ in interrupts:
+        for request in interrupt_.value["action_requests"]:
+            print(f"INTERRUPTED: {interrupt_.id}")
+            print(f"{request['description']}\n")
+
+    resume = {}
+    for interrupt_ in interrupts:
+        if interrupt_.value["action_requests"][0]["name"] == "send_email":  # TODO: Instead of using interrupt ids.
+            # Edit email
+            edited_action = interrupt_.value["action_requests"][0].copy()
+            edited_action["args"]["subject"] = "Mockups reminder"
+            resume[interrupt_.id] = {
+                "decisions": [{"type": "edit", "edited_action": edited_action}]
+            }
+        else:
+            resume[interrupt_.id] = {"decisions": [{"type": "approve"}]}
+
+    interrupts = []
+    for step in supervisor_agent.stream(
+        Command(resume=resume),
+        config,
+    ):
+        for update in step.values():
+            if isinstance(update, dict):
+                for message in update.get("messages", []):
+                    message.pretty_print()
+            else:
+                interrupt_ = update[0]
+                interrupts.append(interrupt_)
+                print(f"\nINTERRUPTED: {interrupt_.id}")
