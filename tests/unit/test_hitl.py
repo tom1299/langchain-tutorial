@@ -1,3 +1,4 @@
+from langchain_core.messages.content import ToolCall
 from pytest import fixture, mark
 
 from langgraph.types import Command
@@ -11,7 +12,6 @@ from langchain.agents.middleware.types import AgentState, ContextT
 from langgraph.runtime import Runtime
 
 from lctutorial import init_chat_model
-from libs.core.langchain_core.messages.tool import ToolCall
 
 max_output_tokens = 1000
 

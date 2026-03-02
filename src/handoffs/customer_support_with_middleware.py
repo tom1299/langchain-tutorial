@@ -108,8 +108,11 @@ ISSUE_CLASSIFIER_PROMPT = """You are a customer support agent helping with devic
 CURRENT STEP: Issue classification
 CUSTOMER INFO: Warranty status is {warranty_status}
 
+IMPORTANT: Always as the customer to describe their issue in detail. 
+Based on their description, classify the issue as either "hardware" or "software".
+
 At this step, you need to:
-1. Ask the customer to describe their issue
+1. Always ask the customer to describe their issue in more detail even if the issue type seems obvious
 2. Determine if it's a hardware issue (physical damage, broken parts) or software issue (app crashes, performance)
 3. Use record_issue_type to record the classification and move to the next step
 
@@ -217,7 +220,8 @@ if __name__ == "__main__":
     )
 
     result = agent.invoke(
-        {"messages": [HumanMessage("Yes, it's still under warranty")]},
+        # {"messages": [HumanMessage("Yes, it's still under warranty")]},
+        {"messages": [HumanMessage("No, it's out of warranty for over a year")]},
         config
     )
 
@@ -227,7 +231,7 @@ if __name__ == "__main__":
     )
 
     result = agent.invoke(
-        {"messages": [HumanMessage("What should I do?")]},
+        {"messages": [HumanMessage("Thank you")]},
         config
     )
     for msg in result['messages']:
