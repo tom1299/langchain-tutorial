@@ -12,3 +12,7 @@ Export all dependencies to requirements.txt format:
 ```bash
 uv export --format requirements-txt > requirements.txt
 ```
+Install playwright deps after upgrade:
+```aiignore
+uv run playwright install --with-deps
+```
