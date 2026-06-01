@@ -135,9 +135,10 @@ class TestServerSideTools:
             page.wait_for_selector('role=button[name="Accept all"]', state="visible")
             page.click('role=button[name="Accept all"]')
 
-            page.wait_for_selector('main', state="visible")
+            page.wait_for_load_state("domcontentloaded", timeout=5000)
+            page.wait_for_load_state("networkidle", timeout=5000)
 
-            page_content = page.locator('main').inner_text()
+            page_content = page.locator('body').inner_text()
 
             browser.close()
 
