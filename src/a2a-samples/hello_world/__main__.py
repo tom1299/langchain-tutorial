@@ -115,7 +115,7 @@ def start_agent():
 
     # Run the app
     # Uvicorn is a production-ready ASGI HTTP server
-    uvicorn.run(app, host='::', port=9999)
+    uvicorn.run(app, host=None, port=9999)
 
 if __name__ == '__main__':
     start_agent()

@@ -38,7 +38,7 @@ class TestMessages:
             HumanMessage("List the 3 most important steps for creating a REST API"
                          " as bullet points. Each step should be no more than a short sentence.")
         ]
-        non_programmer_response = model.invoke(messages)
+        non_programmer_response = model.stream(messages)
 
         system_msg = SystemMessage("""
         You are a senior Python developer with expertise in web frameworks.
@@ -50,7 +50,7 @@ class TestMessages:
             HumanMessage("List the 3 most important steps for creating a REST API"
                          " as bullet points. Each step should be no more than a short sentence.")
         ]
-        programmer_response = model.invoke(messages)
+        programmer_response = model.stream(messages)
 
         system_msg = SystemMessage(
             "You are an expert in programming especially in APIs"
@@ -66,7 +66,7 @@ class TestMessages:
                          " Just output the similarity score as an integer number.")
         ]
 
-        eval_msg = model.invoke(messages)
+        eval_msg = model.stream(messages)
 
         print(repr(eval_msg))
 
@@ -78,7 +78,7 @@ class TestMessages:
             {"type": "image", "url": "https://tom1299.github.io/assets/images/avatar.png"},
         ])
 
-        response = model.invoke([human_message])
+        response = model.stream([human_message])
         assert "pixel" in response.content
 
     @mark.skip(reason="Backup test for image analysis with OpenAI")

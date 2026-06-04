@@ -1,7 +1,3 @@
-import asyncio
-import random
-from collections.abc import AsyncIterator
-
 from a2a.helpers import (
     get_message_text,
     new_task_from_user_message,
@@ -12,31 +8,32 @@ from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.server.tasks import TaskUpdater
 from a2a.types.a2a_pb2 import TaskState
+from langchain_core.messages.base import BaseMessage
 
-class HelloWorldAgent:
-    """Hello World Agent."""
+from weather_agent import invoke_weather_agent
 
-    async def stream(self, user_request: str) -> AsyncIterator[str]:
-        """Yield response parts with small random delays to simulate streaming."""
-        response = f'Hello, World! I have received your request ({user_request})'
-        chunk_size = max(1, len(response) // 2)
-        for start in range(0, len(response), chunk_size):
-            await asyncio.sleep(random.uniform(0.1, 1.0))
-            yield response[start:start + chunk_size]
+class WeatherAgent:
 
-class HelloWorldAgentExecutor(AgentExecutor):
-    """Test AgentProxy Implementation."""
+    async def invoke(self, user_request: str) -> str:
+        result = invoke_weather_agent(user_request, "values")
+
+        messages = result["messages"]
+        final_response: BaseMessage = messages[len(messages) - 1]
+
+        return final_response.text
+
+
+class WeatherAgentExecutor(AgentExecutor):
 
     def __init__(self) -> None:
-        self.agent = HelloWorldAgent()
+        self.agent = WeatherAgent()
 
     async def execute(
         self,
         context: RequestContext,
         event_queue: EventQueue,
     ) -> None:
-        """Process user request."""
-        # 1. Collect a task from request context
+
         if context.current_task:
             task = context.current_task
         else:
@@ -44,7 +41,6 @@ class HelloWorldAgentExecutor(AgentExecutor):
             task = new_task_from_user_message(context.message)
             await event_queue.enqueue_event(task)
 
-        # 2. Update task status in EventQueue using TaskUpdater class object
         task_updater = TaskUpdater(
             event_queue=event_queue, task_id=task.id, context_id=task.context_id
         )
@@ -55,14 +51,11 @@ class HelloWorldAgentExecutor(AgentExecutor):
 
         query = get_message_text(context.message)
         if query:
-            parts: list[str] = []
-            async for part in self.agent.stream(user_request=query):
-                parts.append(part)
-                await task_updater.add_artifact(parts=[new_text_part(text=part, media_type='text/plain')])
-            result = ''.join(parts)
+            result = await self.agent.invoke(user_request=query)
         else:
             result = 'No text input is provided!'
-            await task_updater.add_artifact(parts=[new_text_part(text=result, media_type='text/plain')])
+
+        await task_updater.add_artifact(parts=[new_text_part(text=result, media_type='text/plain')])
         print('Result: ', result)
 
         await task_updater.update_status(
@@ -71,5 +64,4 @@ class HelloWorldAgentExecutor(AgentExecutor):
         )
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
-        """Raise exception as cancel is not supported."""
         raise NotImplementedError('Cancel is not supported.')

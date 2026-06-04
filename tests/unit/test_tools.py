@@ -73,7 +73,7 @@ class TestTools:
 
         model_decided_to_call_tool = False
 
-        response = model.invoke("What's the weather like in Boston?")
+        response = model.stream("What's the weather like in Boston?")
         for tool_call in response.tool_calls:
             # Assert the tool call the model decided to make
             model_decided_to_call_tool = True
@@ -87,7 +87,7 @@ class TestTools:
 
         # Step 1: Model generates tool calls
         messages = [{"role": "user", "content": "What's the weather in Boston?"}]
-        ai_msg = model.invoke(messages)
+        ai_msg = model.stream(messages)
         messages.append(ai_msg)
 
         # Step 2: Execute tools and collect results
@@ -97,14 +97,14 @@ class TestTools:
             messages.append(tool_result)
 
         # Step 3: Pass results back to model for final response
-        final_response = model.invoke(messages)
+        final_response = model.stream(messages)
         print(final_response.text)          # TODO: Examine why final response is not as expected (empty)
         # "The current weather in Boston is 72°F and sunny."
 
     def test_parallel_tool_invocation(self, model_name, request):
         model = request.getfixturevalue(model_name)
 
-        response = model.invoke(
+        response = model.stream(
             "What's the weather in Boston and Tokyo?"
         )
 
