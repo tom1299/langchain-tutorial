@@ -1,3 +1,6 @@
+from typing import AsyncIterator
+from unittest import result
+
 from a2a.helpers import (
     get_message_text,
     new_task_from_user_message,
@@ -10,7 +13,7 @@ from a2a.server.tasks import TaskUpdater
 from a2a.types.a2a_pb2 import TaskState
 from langchain_core.messages.base import BaseMessage
 
-from weather_agent import invoke_weather_agent
+from weather_agent import invoke_weather_agent, stream_weather_agent
 
 class WeatherAgent:
 
@@ -21,6 +24,12 @@ class WeatherAgent:
         final_response: BaseMessage = messages[len(messages) - 1]
 
         return final_response.text
+
+    async def stream(self, user_request: str) -> AsyncIterator[str]:
+        for step,data in stream_weather_agent("Paris", stream_mode="updates"):
+            if step == "model" and data['messages'][0].content_blocks[0]['type'] == 'text':
+                part = data['messages'][0].content_blocks[0]['text']
+                yield part
 
 
 class WeatherAgentExecutor(AgentExecutor):
@@ -37,7 +46,6 @@ class WeatherAgentExecutor(AgentExecutor):
         if context.current_task:
             task = context.current_task
         else:
-            # 1.1 If there is no task, create one and add it event queue
             task = new_task_from_user_message(context.message)
             await event_queue.enqueue_event(task)
 
