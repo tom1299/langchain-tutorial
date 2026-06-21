@@ -24,7 +24,7 @@ class TestTokenUsage:
         usage_callback = UsageMetadataCallbackHandler()
         model = request.getfixturevalue(model_name)
 
-        response: AIMessage = model.stream("Hello", config={"callbacks": [usage_callback]})
+        response: AIMessage = model.invoke("Hello", config={"callbacks": [usage_callback]})
         # Token usage also part of AIMessage
         actual_model_name = response.response_metadata.get("model_name")
 

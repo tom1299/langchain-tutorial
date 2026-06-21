@@ -42,7 +42,7 @@ def start_agent():
         supported_interfaces=[
             AgentInterface(
                 protocol_binding='JSONRPC',
-                url='http://127.0.0.1:9999',  # URL ?
+                url='http://127.0.0.1:9998',  # URL ?
             )
         ],
         skills=[skill]
@@ -60,7 +60,7 @@ def start_agent():
 
     app = Starlette(routes=routes)
 
-    uvicorn.run(app, host=None, port=9999)
+    uvicorn.run(app, host=None, port=9998)
 
 if __name__ == '__main__':
     start_agent()

@@ -50,7 +50,7 @@ class TestErrors:
 
     def test_connection_error(self):
         try:
-            connect_to_server("localhost", 9999)
+            connect_to_server("localhost", 9997)
 
             assert False, "Expected ConnectionRefusedError was not raised."
         except ConnectionError as e:
@@ -58,7 +58,7 @@ class TestErrors:
 
     def test_get_addr_error(self):
         try:
-            connect_to_server("lokalhost", 9999)
+            connect_to_server("lokalhost", 9997)
 
             assert False, "Expected socket.gaierror was not raised."
         except socket.gaierror as e:
@@ -66,7 +66,7 @@ class TestErrors:
 
     def test_udp_timeout(self):
         try:
-            send_udp("localhost", 9999, b"test")
+            send_udp("localhost", 9997, b"test")
 
             assert False, "Expected timeout"
         except socket.timeout as e:
@@ -80,8 +80,8 @@ def test_tcp_timeout():
 
     try:
         # Connect to a server that accepts but doesn't respond
-        # (e.g., nc -l 9999 on Linux)
-        sock.connect(("localhost", 9999))
+        # (e.g., nc -l 9997 on Linux)
+        sock.connect(("localhost", 9997))
 
         # This will timeout because server doesn't send data
         data = sock.recv(4096)  # Raises socket.timeout after 2 seconds

@@ -78,7 +78,7 @@ class TestMessages:
             {"type": "image", "url": "https://tom1299.github.io/assets/images/avatar.png"},
         ])
 
-        response = model.stream([human_message])
+        response = model.invoke([human_message])
         assert "pixel" in response.content
 
     @mark.skip(reason="Backup test for image analysis with OpenAI")

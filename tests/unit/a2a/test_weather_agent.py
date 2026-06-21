@@ -40,7 +40,7 @@ def start_server():
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    wait_for_port("127.0.0.1", 9999, timeout=30.0)
+    wait_for_port("127.0.0.1", 9998, timeout=30.0)
 
     yield
 
@@ -52,7 +52,7 @@ async def get_agent_card():
     async with httpx.AsyncClient() as httpx_client:
         resolver = A2ACardResolver(
             httpx_client=httpx_client,
-            base_url='http://127.0.0.1:9999',
+            base_url='http://127.0.0.1:9998',
             # Provide agent_card_path, if your agent uses a different path
             # agent_card_path=''  # noqa: ERA001
         )

@@ -52,7 +52,7 @@ class TestTools:
 
         model_decided_to_call_tool = False
 
-        ai_msg = model.stream(messages)
+        ai_msg = model.invoke(messages)
         messages.append(ai_msg)
 
         for tool_call in ai_msg.tool_calls:
@@ -68,5 +68,5 @@ class TestTools:
             tool_result = get_weather.invoke(tool_call)
             messages.append(tool_result)
 
-        final_response = model.stream(messages)
+        final_response = model.invoke(messages)
         assert "22" in final_response.content

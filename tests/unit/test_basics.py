@@ -29,7 +29,7 @@ class TestBasics:
 
     def test_why_do_parrots_talk(self, model_name, request):
         model = request.getfixturevalue(model_name)
-        model_response = model.stream("Why do parrots talk?")
+        model_response = model.invoke("Why do parrots talk?")
 
         assert isinstance(model_response, AIMessage)
         assert hasattr(model_response, "text")
@@ -52,7 +52,7 @@ class TestBasics:
             {"role": "user", "content": "Translate: I love building applications."}
         ]
 
-        model_response = model.stream(conversation)
+        model_response = model.invoke(conversation)
 
         assert isinstance(model_response, AIMessage)
         assert hasattr(model_response, "text")

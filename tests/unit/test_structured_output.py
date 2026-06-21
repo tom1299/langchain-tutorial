@@ -48,7 +48,7 @@ class TestStructuredOutput:
             }
         ]
 
-        response = model_with_structure.stream(user_message)
+        response = model_with_structure.invoke(user_message)
 
         assert response["parsing_error"] is None
 
