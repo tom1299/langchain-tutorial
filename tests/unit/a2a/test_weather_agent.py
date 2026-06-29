@@ -45,7 +45,11 @@ def start_server():
     yield
 
     process.terminate()
-    process.wait()
+    stdout, stderr = process.communicate()
+    if stdout:
+        print("\n--- Server stdout ---\n" + stdout.decode(errors="replace"))
+    if stderr:
+        print("\n--- Server stderr ---\n" + stderr.decode(errors="replace"))
 
 async def get_agent_card():
 
