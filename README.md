@@ -16,3 +16,7 @@ Install playwright deps after upgrade:
 ```aiignore
 uv run playwright install --with-deps
 ```
+Run a specific test with a fixture:
+```
+uv run pytest tests/unit/git/test_git.py::TestGitApi::test_get_diff_for_file_and_commits[kubernetes_documentation]
+```
