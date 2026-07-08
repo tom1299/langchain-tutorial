@@ -39,6 +39,7 @@ class ChangeDescription(BaseModel):
     commit_sha: str = Field(..., description="The commit SHA of the change.")
     prev_commit_sha: str = Field(..., description="The commit SHA of the previous commit.")
     heading: str = Field(..., description="The heading in the document under which the change was made.")
+    labels: list[str] = Field(..., description="A list of labels describing the topic of the change.")
 
 class ChangeDescriptionList(BaseModel):
     changes: list[ChangeDescription] = Field(..., description="A list of changes made to the document. Derived from the git diff. Related parts of the git diff (same topic) are grouped together.")
@@ -95,6 +96,7 @@ class TestAgentGitAnalysis:
         service_md = "content/en/docs/concepts/services-networking/service.md"
         diff_details = get_diff_details("3d3d53bb471d8b0f145ae98e3fa95e34bfc2d113", repo, service_md)
 
+        labels = ["kubernetes", "services","endpoint-slices","service-discovery","load-balancing"]
         # TODO: Refactor this prompt
         # - Add an example
         prompt = f"""
@@ -105,6 +107,7 @@ class TestAgentGitAnalysis:
         an instance of the class ChangeDescriptionList for each change contained in the diff.
         Use the git diff to do the following:
         * For each change in the diff create a ChangeDescription instance. See the fields of the class ChangeDescriptionList for details what to put where.
+        * For the labels field, use one of the following labels: {", ".join(labels)}
         * If changes are semantically closely related, merge them into a single ChangeDescription instance.
         * Return the list of ChangeDescription instances.
         =========
