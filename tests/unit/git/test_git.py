@@ -68,7 +68,7 @@ class ChangeDescription(BaseModel):
     commit_sha: str = Field(..., description="The commit SHA of the change.")
     prev_commit_sha: str = Field(..., description="The commit SHA of the previous commit.")
     heading: str = Field(..., description="The heading in the document under which the change was made.")
-    labels: list[str] = Field(..., description="A list of labels describing the topic of the change.")
+    labels: list[str] = Field(..., description="A set of labels describing the topic of the change.")
 
 class ChangeDescriptionList(BaseModel):
     changes: list[ChangeDescription] = Field(..., description="A list of changes made to the document. Derived from the git diff. Related parts of the git diff (same topic) are grouped together.")
@@ -133,6 +133,16 @@ def get_diff_details(commit_sha: str, repo: Repo, file_path: str) -> Optional[Di
 
     return None
 
+def get_commits_for_file(repo: Repo, file_path: str, number_of_commits: int = 10) -> list[str]:
+    result = repo.git.log(
+        "--follow",
+        f"--format=%H",
+        f"-n {number_of_commits}",
+        "--",
+        file_path
+    )
+    return result.splitlines()
+
 @mark.parametrize("path_to_git_repo", ["kubernetes_documentation"])
 class TestGitApi:
 
@@ -147,14 +157,16 @@ class TestGitApi:
         assert "Consider using an external load balancer controller or a Gateway API implementation instead" in diff_details.new_version
         assert "Consider using an external load balancer controller or a Gateway API implementation instead" not in diff_details.prev_version
 
-def get_diff_details_with_model(path_to_git_repo, md:str, model) -> ChangeDescriptionList:
-    repo = Repo(path_to_git_repo)
-    diff_details = get_diff_details("3d3d53bb471d8b0f145ae98e3fa95e34bfc2d113", repo, md)
+    def test_get_commits_for_file(self, path_to_git_repo, request):
+        repo = Repo(request.getfixturevalue(path_to_git_repo))
+        service_md = "content/en/docs/concepts/services-networking/service.md"
+        commits = get_commits_for_file(repo, service_md)
+        assert len(commits) == 10
+        assert commits[0] == '90d449e0c3fa65cdcf61dac336121f5586644157'
+        assert commits[9] == 'e417246a2667c816a969fcaf612716c0964995af'
 
-    labels = ["kubernetes", "services", "endpoint-slices", "service-discovery", "load-balancing"]
-    # TODO: Refactor this prompt
-    # - Add an example
-    prompt = f"""
+def create_prompt(diff_details: DiffDetails, labels: set[str]) -> str:
+    return f"""
     You are a helpful assistant that analyzes git diffs for documentation changes.
     You get the git diff and the version of the document before the change.
     Use the diff and the previous document version to analyze the changes made.
@@ -180,29 +192,17 @@ def get_diff_details_with_model(path_to_git_repo, md:str, model) -> ChangeDescri
     {diff_details.prev_commit_sha}
     """
 
+def get_diff_details_with_model(path_to_git_repo, commit_sha: str, md:str, model, labels: set[str]) -> ChangeDescriptionList:
+    repo = Repo(path_to_git_repo)
+    diff_details = get_diff_details(commit_sha, repo, md)
+
+    # TODO: Refactor this prompt
+    # - Add an example
+    prompt = create_prompt(diff_details, labels)
+
     # TODO: Overall significance and topic significance seem to be still very high.
     response = model.invoke(prompt)
     return response["parsed"]
-
-@mark.parametrize("path_to_git_repo", ["kubernetes_documentation"])
-@mark.parametrize(
-    ("provider", "model"),
-    [
-        ("OpenAI", "gpt-4o-mini"),
-#        ("anthropic", "claude-3-5-sonnet"),
-    ],
-    ids=["gpt-4o-mini"]#, "anthropic-sonnet"],
-)
-class TestAgentGitAnalysis:
-    pass
-
-    def test_get_diff_details_with_model(self, path_to_git_repo, request, provider, model):
-        repo_path=request.getfixturevalue(path_to_git_repo)
-        service_md = "content/en/docs/concepts/services-networking/service.md"
-        model = init_chat_model(provider=provider, model_name=model)
-        model_with_structure = model.with_structured_output(ChangeDescriptionList, include_raw=True)
-
-
 
 @mark.parametrize("path_to_git_repo", ["kubernetes_documentation"])
 @mark.usefixtures("database_connection")
@@ -222,7 +222,9 @@ class TestGitHistoryAnalysis:
         model = init_chat_model(provider=provider, model_name=model)
         model_with_structure = model.with_structured_output(ChangeDescriptionList, include_raw=True)
 
-        response = get_diff_details_with_model(repo_path, service_md, model_with_structure)
+        labels = ["kubernetes", "services", "endpoint-slices", "service-discovery", "load-balancing"]
+        commit_sha = "3d3d53bb471d8b0f145ae98e3fa95e34bfc2d113"
+        response = get_diff_details_with_model(repo_path, commit_sha, service_md, model_with_structure, labels)
         assert len(response.changes) == 2
 
         for change in response.changes:
@@ -232,5 +234,23 @@ class TestGitHistoryAnalysis:
         assert len(changes) == 2
         for change in changes:
             print(f"Change: {change.short_description}, labels: {change.labels}, topic significance: {change.topic_significance}, overall significance: {change.overall_significance}")
+
+
+    def test_labeling_evolution(self, path_to_git_repo, database_connection: Connection, request, provider, model):
+        repo_path=request.getfixturevalue(path_to_git_repo)
+        service_md = "content/en/docs/concepts/services-networking/service.md"
+
+        model = init_chat_model(provider=provider, model_name=model)
+        model_with_structure = model.with_structured_output(ChangeDescriptionList, include_raw=True)
+
+        labels = {"kubernetes", "services", "endpoint-slices", "service-discovery", "load-balancing"}
+
+        commits = get_commits_for_file(Repo(repo_path), service_md, number_of_commits=10)
+        for c in commits:
+            changes = get_diff_details_with_model(repo_path, c, service_md, model_with_structure, labels)
+            for change in changes.changes:
+                labels.update(change.labels)
+
+        print(labels)
 
 
