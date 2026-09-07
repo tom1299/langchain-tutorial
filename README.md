@@ -8,6 +8,11 @@ Use dry run to see changes:
 ```bash
 uv lock --upgrade --dry-run
 ```
+Update a single package:
+```bash
+uv lock --upgrade-package <package-name>
+uv sync
+```
 Export all dependencies to requirements.txt format:
 ```bash
 uv export --format requirements-txt > requirements.txt
