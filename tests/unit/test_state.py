@@ -28,7 +28,7 @@ max_output_tokens = 200
 
 @fixture(scope="module")
 def openai_model():
-    return init_chat_model(provider="OpenAI", tokens=max_output_tokens)
+    return init_chat_model(provider="OpenAI", tokens=max_output_tokens, model_name="gpt-4o-mini")
 
 @fixture(scope="module")
 def anthropic_model():
