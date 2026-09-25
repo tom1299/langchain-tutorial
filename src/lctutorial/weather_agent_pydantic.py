@@ -2,11 +2,11 @@
 From https://docs.langchain.com/oss/python/langchain/quickstart
 """
 import os
+
+from langchain_core.messages import ToolMessage
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from langchain.agents import create_agent
-
-from libs.core.langchain_core.messages.tool import ToolMessage
 
 os.environ["LANGCHAIN_TRACING"] = "true"
 # TODO: Activating tracing logs the following message:
