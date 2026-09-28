@@ -74,17 +74,8 @@ def count_tool_calls(
         }
     )
 
-@tool(parse_docstring=True)
+@tool(description="Returns the weather for a given location.")
 def get_weather(location: str) -> str:
-    """
-    Get the weather at a location.
-
-    Args:
-        location (str): The location to get the weather for. For example, "Boston" or "Tokyo".
-
-    Returns:
-        str: The weather.
-    """
     return f"It's sunny in {location}."
 
 @mark.parametrize("model_name", ["openai_model"])
