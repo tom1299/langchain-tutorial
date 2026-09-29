@@ -15,11 +15,14 @@ For OpenAI the following tool_choice structure seems to be required to allow mul
         }
     }
 """
+from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import Command
 from pytest import fail, fixture, mark
 
 from langchain.messages import AIMessage, HumanMessage, ToolMessage
 
-from langchain.tools import tool
+from langchain.tools import tool, ToolRuntime
 
 from lctutorial import init_chat_model
 
@@ -190,3 +193,148 @@ class TestTools:
         assert "72" in response.content and "sunny" in response.content
 
         print(repr(response))
+
+class TestToolsFromLangchainDocstring:
+
+    def test_tool_definitions(self):
+
+        @tool("web_search")  # Custom name
+        def search(query: str) -> str:
+            """Search the web for information."""
+            return f"Results for: {query}"
+
+        # Object of type tool has a name attribute
+        print(search.name)  # web_search
+
+        @tool("calculator", description="Performs arithmetic calculations. Use this for any math problems.")
+        def calc(expression: str) -> str:
+            """Evaluate mathematical expressions."""
+            return str(eval(expression))
+
+        # Invoke inherited from Tool class which inherits from Runnable => invoke works
+        result = calc.invoke({"expression": "2 + 2"})
+        assert result == "4"
+
+    def test_tool_schemas(self):
+        from pydantic import BaseModel, Field
+        from typing import Literal
+
+        weather_schema = {
+            "type": "object",
+            "properties": {
+                "location": {"type": "string"},
+                "units": {"type": "string"},
+                "include_forecast": {"type": "boolean"}
+            },
+            "required": ["location", "units", "include_forecast"]
+        }
+
+        class WeatherInput(BaseModel):
+            """Input for weather queries."""
+            location: str = Field(description="City name or coordinates")
+            units: Literal["celsius", "fahrenheit"] = Field(
+                default="celsius",
+                description="Temperature unit preference"
+            )
+            include_forecast: bool = Field(
+                default=False,
+                description="Include 5-day forecast"
+            )
+
+        @tool("get_weather_json_schema", args_schema=weather_schema)
+        # @tool("get_weather_pydantic_schema", args_schema=WeatherInput)
+        def get_weather_intern(location: str, units: str = "celsius", include_forecast: bool = False,
+                        config: RunnableConfig=None, runtime: ToolRuntime=None) -> str:
+            """Get current weather and optional forecast."""
+            # TODO: Examine why tool runtime is None.
+            temp = 22 if units == "celsius" else 72
+            result = f"Current weather in {location}: {temp} degrees {units[0].upper()}"
+            if include_forecast:
+                result += "\nNext 5 days: Sunny"
+            return result
+
+        result = get_weather_intern.invoke({"location": "Berlin", "units": "celsius", "include_forecast": True})
+        assert "Berlin" in result
+        assert "Next 5 days: Sunny" in result
+
+    def test_context_with_database(self):
+        from dataclasses import dataclass
+
+        from langchain.agents import create_agent
+        from langchain.tools import tool, ToolRuntime
+        from langchain_core.utils.uuid import uuid7
+        from langchain_openai import ChatOpenAI
+
+        USER_DATABASE = {
+            "user123": {
+                "name": "Alice Johnson",
+                "account_type": "Premium",
+                "balance": 5000,
+                "email": "alice@example.com",
+            },
+            "user456": {
+                "name": "Bob Smith",
+                "account_type": "Standard",
+                "balance": 1200,
+                "email": "bob@example.com",
+            },
+        }
+
+        @dataclass
+        class UserContext:
+            user_id: str
+
+        @tool
+        def get_account_info(runtime: ToolRuntime[UserContext]) -> str:
+            """Get the current user's account information."""
+            user_id = runtime.context.user_id
+
+            if user_id in USER_DATABASE:
+                user = USER_DATABASE[user_id]
+                return (
+                    f"Account holder: {user['name']}\n"
+                    f"Type: {user['account_type']}\n"
+                    f"Balance: ${user['balance']}"
+                )
+            return "User not found"
+
+        model = ChatOpenAI(model="gpt-4o")
+        agent = create_agent(
+            model,
+            tools=[get_account_info],
+            context_schema=UserContext,
+            system_prompt="You are a financial assistant.",
+            # TODO: Example only works with in memory saver => Messages are accessible in subsequent calls.
+            checkpointer=InMemorySaver()
+        )
+
+        thread_id_user123 = str(uuid7())
+        result = agent.invoke(
+            {"messages": [{"role": "user", "content": "What's my current balance?"}]},
+            config={"configurable": {"thread_id": thread_id_user123}},
+            context=UserContext(user_id="user123"),
+        )
+        assert "5,000" in result["messages"][-1].content or "5000" in result["messages"][-1].content
+        for msg in result["messages"]:
+            print(type(msg).__name__, f"\"{msg.content if msg.content else "tool_call get_account_info"}\"")
+
+        # thread_id_user456 = str(uuid7())
+        # result = agent.invoke(
+        #     {"messages": [{"role": "user", "content": "What's my current balance?"}]},
+        #     config={"configurable": {"thread_id": thread_id_user456}},
+        #     context=UserContext(user_id="user456"),
+        # )
+        #
+        # assert "1,200" in result["messages"][-1].content or "1200" in result["messages"][-1].content
+
+        result = agent.invoke(
+            {"messages": [{"role": "user", "content": "What's my account type?"}]},
+            config={"configurable": {"thread_id": thread_id_user123}},
+            context=UserContext(user_id="user123")
+        )
+
+        assert "Premium" in result["messages"][-1].content
+        # TODO: If memory checkpointer is used the tool is only called once. Why ?
+        for msg in result["messages"]:
+            print(type(msg).__name__, f"\"{msg.content if msg.content else "tool_call get_account_info"}\"")
+
