@@ -298,7 +298,7 @@ class TestToolsFromLangchainDocstring:
                 )
             return "User not found"
 
-        model = ChatOpenAI(model="gpt-4o")
+        model = ChatOpenAI(model="gpt-5.5")
         agent = create_agent(
             model,
             tools=[get_account_info],
@@ -316,7 +316,7 @@ class TestToolsFromLangchainDocstring:
         )
         assert "5,000" in result["messages"][-1].content or "5000" in result["messages"][-1].content
         for msg in result["messages"]:
-            print(type(msg).__name__, f"\"{msg.content if msg.content else "tool_call get_account_info"}\"")
+            print(f"{type(msg).__name__}: {msg.content}")
 
         # thread_id_user456 = str(uuid7())
         # result = agent.invoke(
@@ -328,13 +328,15 @@ class TestToolsFromLangchainDocstring:
         # assert "1,200" in result["messages"][-1].content or "1200" in result["messages"][-1].content
 
         result = agent.invoke(
-            {"messages": [{"role": "user", "content": "What's my account type?"}]},
+            {"messages": [{"role": "user", "content": "Am I a premium customer?"}]},
             config={"configurable": {"thread_id": thread_id_user123}},
             context=UserContext(user_id="user123")
         )
 
+        print("=======")
+
         assert "Premium" in result["messages"][-1].content
         # TODO: If memory checkpointer is used the tool is only called once. Why ?
         for msg in result["messages"]:
-            print(type(msg).__name__, f"\"{msg.content if msg.content else "tool_call get_account_info"}\"")
+            print(f"{type(msg).__name__}: {msg.content}")
 
