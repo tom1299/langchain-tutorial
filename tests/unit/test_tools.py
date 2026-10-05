@@ -337,6 +337,8 @@ class TestToolsFromLangchainDocstring:
 
         assert "Premium" in result["messages"][-1].content
         # TODO: If memory checkpointer is used the tool is only called once. Why ?
+        # => Depends on model being used. Since the tool call is in the messages, the model does not call the tool again.
+        # (Depends on model though)
         for msg in result["messages"]:
             print(f"{type(msg).__name__}: {msg.content}")
 
