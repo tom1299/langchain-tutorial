@@ -16,4 +16,4 @@ wheels/
 .env
 
 # test-data folder
-tests/test-data
+tests/test-data/kubernetes-website
