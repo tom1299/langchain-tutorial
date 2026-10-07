@@ -13,6 +13,7 @@ from lctutorial import init_chat_model
 @tool
 def get_user_info(user_id: str, runtime: ToolRuntime) -> str:
     """Look up user info."""
+    print(f"Fetching user info for {user_id}... at {datetime.datetime.now().time().isoformat(timespec='milliseconds')}")
     store = runtime.store
     user_info = store.get(("users",), user_id)
     return str(user_info.value) if user_info else "Unknown user"
@@ -35,6 +36,8 @@ def get_location_info(location: str) -> str:
 @tool
 def save_user_info(user_id: str, name: str, age: int, email: str, runtime: ToolRuntime) -> str:
     """Save user info."""
+    print(
+        f"Saving user info for {user_id}... at {datetime.datetime.now().time().isoformat(timespec='milliseconds')}")
     store = runtime.store
     store.put(("users",), user_id, {"name": name, "age": age, "email": email})
     return "Successfully saved user info."
@@ -107,10 +110,12 @@ class TestLongTermMemory:
 
         result = agent.invoke({
             "messages": [{"role": "user",
-                          "content": "Save the following user: userid: abc123, name: Foo, age: 25, email: foo@langchain.dev. Get if afterwards again to verify it was saved."}]
+                          "content": "Save the following user: userid: abc123, name: Foo, age: 25, email: foo@langchain.dev. Get it again to verify it was saved."}]
         })
 
         # TODO: Add appropriate asserts
+        # TODO: Examinw whether tools are really called in parallel.
+        # Could be that model decides to call them sequentially, even if parallel tool calls are enabled.
         print(result)
 
     def test_parallel_tool_calls_with_simple_tools(self):
@@ -130,3 +135,4 @@ class TestLongTermMemory:
         })
 
         print(result)
+        # TODO: Add assert that tools calls have been parallel.
