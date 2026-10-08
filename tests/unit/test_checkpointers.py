@@ -1,4 +1,5 @@
 import os
+from uuid import uuid4
 
 from langchain_core.language_models import FakeListChatModel
 from langgraph.checkpoint.memory import InMemorySaver
@@ -32,10 +33,59 @@ def sqlite_checkpointer():
 @mark.parametrize("checkpointer", ["oracle_checkpointer", "sqlite_checkpointer", "inmemory_checkpointer"])
 class TestCheckpointers:
 
+    def invoke_graph(self, graph, config):
+        result = graph.invoke(
+            {"messages": [{"role": "user", "content": "hi! I'm bob"}]},
+            config=config
+        )
+
+        assert result["messages"][-1].content == "Hello Bob! How can I assist you today?"
+        for message in result["messages"]:
+            print(message.content)
+
+        print("--- Next invocation ---")
+
+        result = graph.invoke(
+            {"messages": [{"role": "user", "content": "what's my name?"}]},
+            config=config
+        )
+
+        assert result["messages"][-1].content == "Your name is Bob. You mentioned it in your previous message."
+        for message in result["messages"]:
+            print(message.content)
+
+    def stream_event_graph(self, graph, config):
+        stream = graph.stream_events(
+            {"messages": [{"role": "user", "content": "hi! I'm bob"}]},
+            config,
+            version="v3",
+        )
+
+        for snapshot in stream.values:
+            pass
+
+        stream = graph.stream_events(
+            {"messages": [{"role": "user", "content": "what's my name?"}]},
+            config,
+            version="v3",
+        )
+
+        for index, snapshot in enumerate(stream.values):
+            print(f"Snapshot {index}:")
+            if index == 1:
+                assert snapshot["messages"][-1].text == "Your name is Bob. You mentioned it in your previous message."
+
+
+
     def test_checkpointers(self, request, checkpointer):
         cp = request.getfixturevalue(checkpointer)
-        # model = init_chat_model(model="claude-haiku-4-5-20251001")
+
+        # From: https://docs.langchain.com/oss/python/langgraph/add-memory#sync-4
+        # TODO: Why use stream instead of invoke for this example ?
+
         model = FakeListChatModel(responses=["Hello Bob! How can I assist you today?",
+                                "Your name is Bob. You mentioned it in your previous message.",
+                                "Hello Bob! How can I assist you today?",
                                 "Your name is Bob. You mentioned it in your previous message."])
 
         with cp as checkpointer:
@@ -55,26 +105,14 @@ class TestCheckpointers:
 
             config = {
                 "configurable": {
-                    "thread_id": "1"
+                    "thread_id": f"{uuid4()}"
                 }
             }
+            self.invoke_graph(graph, config)
 
-            result = graph.invoke(
-                {"messages": [{"role": "user", "content": "hi! I'm bob"}]},
-                config=config
-            )
-
-            assert result["messages"][-1].content == "Hello Bob! How can I assist you today?"
-            for message in result["messages"]:
-               print(message.content)
-
-            print("--- Next invocation ---")
-
-            result = graph.invoke(
-                {"messages": [{"role": "user", "content": "what's my name?"}]},
-                config=config
-            )
-
-            assert result["messages"][-1].content == "Your name is Bob. You mentioned it in your previous message."
-            for message in result["messages"]:
-               print(message.content)
+            config = {
+                "configurable": {
+                    "thread_id": f"{uuid4()}"
+                }
+            }
+            self.stream_event_graph(graph, config)
