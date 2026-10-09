@@ -116,3 +116,49 @@ class TestCheckpointers:
                 }
             }
             self.stream_event_graph(graph, config)
+
+class TestCheckpointersAysnc:
+
+    @mark.asyncio
+    async def test_checkpointers_async(self):
+        from langgraph_oracledb.checkpoint.oracle import AsyncOracleSaver
+
+        model = FakeListChatModel(responses=["Hello Bob! How can I assist you today?",
+                                             "Your name is Bob. You mentioned it in your previous message."])
+
+        async with AsyncOracleSaver.from_conn_string(ORACLE_DB_URI) as checkpointer:
+            await checkpointer.setup()
+
+            async def call_model(state: MessagesState):
+                response = await model.ainvoke(state["messages"])
+                return {"messages": response}
+
+            builder = StateGraph(MessagesState)
+            builder.add_node(call_model)
+            builder.add_edge(START, "call_model")
+
+            graph = builder.compile(checkpointer=checkpointer)
+
+            config = {
+                "configurable": {
+                    "thread_id": "1"
+                }
+            }
+
+            stream = await graph.astream_events(
+                {"messages": [{"role": "user", "content": "hi! I'm bob"}]},
+                config,
+                version="v3",
+            )
+            async for message in stream.messages:
+                async for token in message.text:
+                    pass
+
+            stream = await graph.astream_events(
+                {"messages": [{"role": "user", "content": "what's my name?"}]},
+                config,
+                version="v3",
+            )
+            async for message in stream.messages:
+                async for token in message.text:
+                    print(token, end="", flush=True)
