@@ -16,6 +16,8 @@ def openai_model():
 
 @fixture(scope="module")
 def anthropic_model():
+    # See https://reference.langchain.com/python/langchain-anthropic/chat_models/ChatAnthropic/thinking and
+    # https://reference.langchain.com/python/langchain-anthropic/chat_models/ChatAnthropic/reasoning_effort
     thinking = {"type": "adaptive", "display": "summarized"}
     reasoning_effort = "medium"
     return init_chat_model(provider="Anthropic", model_name="claude-opus-5-5", tokens=max_output_tokens, thinking=thinking, reasoning_effort=reasoning_effort)
