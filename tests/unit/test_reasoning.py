@@ -3,7 +3,7 @@ from pytest import fail, fixture, mark
 
 from lctutorial import init_chat_model
 
-max_output_tokens = 1000
+max_output_tokens = 2048
 
 @fixture(scope="module")
 def openai_model():
@@ -16,24 +16,34 @@ def openai_model():
 
 @fixture(scope="module")
 def anthropic_model():
-    return init_chat_model(provider="Anthropic", tokens=max_output_tokens)
+    thinking = {"type": "adaptive", "display": "summarized"}
+    reasoning_effort = "medium"
+    return init_chat_model(provider="Anthropic", model_name="claude-opus-5-5", tokens=max_output_tokens, thinking=thinking, reasoning_effort=reasoning_effort)
 
 
 class TestReasoning:
 
-    @mark.parametrize("model_name", ["openai_model"])
-    def test_reasoning_with_openai(self, model_name, request):
-        # TODO: Find a model which allows reasoning without identify verification
-
+    @mark.parametrize("model_name", ["openai_model", "anthropic_model"])
+    def test_reasoning(self, model_name, request):
         model = request.getfixturevalue(model_name)
 
-        if model.profile.get("reasoning_output") is not True:
-            fail(f"Model {model_name} does not support reasoning_output")
+        response = model.invoke("Why do parrots have colorful feathers?")
 
-        try:
-            for chunk in model.stream("Why do parrots have colorful feathers?"):
-                reasoning_steps = [r for r in chunk.content_blocks if r["type"] == "reasoning"]
-                print(reasoning_steps if reasoning_steps else chunk.text)
-        except BadRequestError as e:
-            assert e.status_code == 400
-            assert "must be verified" in e.message
+        thoughts = None
+        for content in response.content:
+            # reasoning = openai, thinking = anthropic
+            if content["type"] in ["reasoning", "thinking"]:
+                # summary = openai
+                if "summary" in content:
+                    summary: list = content["summary"]
+                    for summary_element in summary:
+                        if "text" in summary_element:
+                            thoughts = summary_element["text"]
+                # thinking = anthropic
+                elif "thinking" in content:
+                    thoughts = content["thinking"]
+                else:
+                    fail("No reasoning / thinking found in response content")
+
+        if not thoughts:
+            fail("No reasoning/thinking found in response content")
